@@ -97,7 +97,7 @@ export class WorkingDirectoryManager {
   }
 
   getWorkingDirectory(channelId: string, threadTs?: string, userId?: string): string | undefined {
-    // Priority: Thread > Channel/DM
+    // Priority: Thread > Channel/DM > Default
     if (threadTs) {
       const threadKey = this.getConfigKey(channelId, threadTs);
       const threadConfig = this.configs.get(threadKey);
@@ -119,6 +119,23 @@ export class WorkingDirectoryManager {
         channelId,
       });
       return channelConfig.directory;
+    }
+
+    // Fall back to default working directory if configured
+    if (config.defaultWorkingDirectory) {
+      const defaultDirectory = config.defaultWorkingDirectory;
+      if (fs.existsSync(defaultDirectory)) {
+        this.logger.debug('Using default working directory', { 
+          directory: defaultDirectory,
+          channelId, 
+          threadTs 
+        });
+        return defaultDirectory;
+      } else {
+        this.logger.warn('Default working directory does not exist', { 
+          directory: defaultDirectory 
+        });
+      }
     }
 
     this.logger.debug('No working directory configured', { channelId, threadTs });

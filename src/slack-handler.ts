@@ -6,7 +6,6 @@ import { WorkingDirectoryManager } from './working-directory-manager';
 import { FileHandler, ProcessedFile } from './file-handler';
 import { TodoManager, Todo } from './todo-manager';
 import { McpManager } from './mcp-manager';
-import { permissionServer } from './permission-mcp-server';
 import { config } from './config';
 
 interface MessageEvent {
@@ -51,13 +50,13 @@ export class SlackHandler {
 
   async handleMessage(event: MessageEvent, say: any) {
     const { user, channel, thread_ts, ts, text, files } = event;
-    
+
     // Process any attached files
     let processedFiles: ProcessedFile[] = [];
     if (files && files.length > 0) {
       this.logger.info('Processing uploaded files', { count: files.length });
       processedFiles = await this.fileHandler.downloadAndProcessFiles(files);
-      
+
       if (processedFiles.length > 0) {
         await say({
           text: `📎 Processing ${processedFiles.length} file(s): ${processedFiles.map(f => f.name).join(', ')}`,
@@ -113,7 +112,7 @@ export class SlackHandler {
         isDM ? user : undefined
       );
       const context = thread_ts ? 'this thread' : (isDM ? 'this conversation' : 'this channel');
-      
+
       await say({
         text: this.workingDirManager.formatDirectoryMessage(directory, context),
         thread_ts: thread_ts || ts,
@@ -158,7 +157,7 @@ export class SlackHandler {
     // Working directory is always required
     if (!workingDirectory) {
       let errorMessage = `⚠️ No working directory set. `;
-      
+
       if (!isDM && !this.workingDirManager.hasChannelWorkingDirectory(channel)) {
         // No channel default set
         errorMessage += `Please set a default working directory for this channel first using:\n`;
@@ -179,7 +178,7 @@ export class SlackHandler {
       } else {
         errorMessage += `Please set one first using:\n\`cwd /path/to/directory\``;
       }
-      
+
       await say({
         text: errorMessage,
         thread_ts: thread_ts || ts,
@@ -188,11 +187,11 @@ export class SlackHandler {
     }
 
     const sessionKey = this.claudeHandler.getSessionKey(user, channel, thread_ts || ts);
-    
+
     // Store the original message info for status reactions
     const originalMessageTs = thread_ts || ts;
     this.originalMessages.set(sessionKey, { channel, ts: originalMessageTs });
-    
+
     // Cancel any existing request for this conversation
     const existingController = this.activeControllers.get(sessionKey);
     if (existingController) {
@@ -216,12 +215,12 @@ export class SlackHandler {
 
     try {
       // Prepare the prompt with file attachments
-      const finalPrompt = processedFiles.length > 0 
+      const finalPrompt = processedFiles.length > 0
         ? await this.fileHandler.formatFilePrompt(processedFiles, text || '')
         : text || '';
 
-      this.logger.info('Sending query to Claude Code SDK', { 
-        prompt: finalPrompt.substring(0, 200) + (finalPrompt.length > 200 ? '...' : ''), 
+      this.logger.info('Sending query to Claude Code SDK', {
+        prompt: finalPrompt.substring(0, 200) + (finalPrompt.length > 200 ? '...' : ''),
         sessionId: session.sessionId,
         workingDirectory,
         fileCount: processedFiles.length,
@@ -235,16 +234,9 @@ export class SlackHandler {
       statusMessageTs = statusResult.ts;
 
       // Add thinking reaction to original message (but don't spam if already set)
-      await this.updateMessageReaction(sessionKey, '🤔');
+      await this.updateMessageReaction(sessionKey, 'thinking_face');
       
-      // Create Slack context for permission prompts
-      const slackContext = {
-        channel,
-        threadTs: thread_ts,
-        user
-      };
-      
-      for await (const message of this.claudeHandler.streamQuery(finalPrompt, session, abortController, workingDirectory, slackContext)) {
+      for await (const message of this.claudeHandler.streamQuery(finalPrompt, session, abortController, workingDirectory)) {
         if (abortController.signal.aborted) break;
 
         this.logger.debug('Received message from Claude SDK', {
@@ -256,7 +248,7 @@ export class SlackHandler {
         if (message.type === 'assistant') {
           // Check if this is a tool use message
           const hasToolUse = message.message.content?.some((part: any) => part.type === 'tool_use');
-          
+
           if (hasToolUse) {
             // Update status to show working
             if (statusMessageTs) {
@@ -268,10 +260,10 @@ export class SlackHandler {
             }
 
             // Update reaction to show working
-            await this.updateMessageReaction(sessionKey, '⚙️');
+            await this.updateMessageReaction(sessionKey, 'gear');
 
             // Check for TodoWrite tool and handle it specially
-            const todoTool = message.message.content?.find((part: any) => 
+            const todoTool = message.message.content?.find((part: any) =>
               part.type === 'tool_use' && part.name === 'TodoWrite'
             );
 
@@ -292,7 +284,7 @@ export class SlackHandler {
             const content = this.extractTextContent(message);
             if (content) {
               currentMessages.push(content);
-              
+
               // Send each new piece of content as a separate message
               const formatted = this.formatMessage(content, false);
               await say({
@@ -308,7 +300,7 @@ export class SlackHandler {
             totalCost: (message as any).total_cost_usd,
             duration: (message as any).duration_ms,
           });
-          
+
           if (message.subtype === 'success' && (message as any).result) {
             const finalResult = (message as any).result;
             if (finalResult && !currentMessages.includes(finalResult)) {
@@ -332,7 +324,7 @@ export class SlackHandler {
       }
 
       // Update reaction to show completion
-      await this.updateMessageReaction(sessionKey, '✅');
+      await this.updateMessageReaction(sessionKey, 'white_check_mark');
 
       this.logger.info('Completed processing message', {
         sessionKey,
@@ -346,7 +338,7 @@ export class SlackHandler {
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         this.logger.error('Error handling message', error);
-        
+
         // Update status to error
         if (statusMessageTs) {
           await this.app.client.chat.update({
@@ -357,15 +349,15 @@ export class SlackHandler {
         }
 
         // Update reaction to show error
-        await this.updateMessageReaction(sessionKey, '❌');
-        
+        await this.updateMessageReaction(sessionKey, 'x');
+
         await say({
           text: `Error: ${error.message || 'Something went wrong'}`,
           thread_ts: thread_ts || ts,
         });
       } else {
         this.logger.debug('Request was aborted', { sessionKey });
-        
+
         // Update status to cancelled
         if (statusMessageTs) {
           await this.app.client.chat.update({
@@ -376,7 +368,7 @@ export class SlackHandler {
         }
 
         // Update reaction to show cancellation
-        await this.updateMessageReaction(sessionKey, '⏹️');
+        await this.updateMessageReaction(sessionKey, 'black_square_button');
       }
 
       // Clean up temporary files in case of error too
@@ -385,7 +377,7 @@ export class SlackHandler {
       }
     } finally {
       this.activeControllers.delete(sessionKey);
-      
+
       // Clean up todo tracking if session ended
       if (session?.sessionId) {
         // Don't immediately clean up - keep todos visible for a while
@@ -411,14 +403,14 @@ export class SlackHandler {
 
   private formatToolUse(content: any[]): string {
     const parts: string[] = [];
-    
+
     for (const part of content) {
       if (part.type === 'text') {
         parts.push(part.text);
       } else if (part.type === 'tool_use') {
         const toolName = part.name;
         const input = part.input;
-        
+
         switch (toolName) {
           case 'Edit':
           case 'MultiEdit':
@@ -441,30 +433,30 @@ export class SlackHandler {
         }
       }
     }
-    
+
     return parts.join('\n\n');
   }
 
   private formatEditTool(toolName: string, input: any): string {
     const filePath = input.file_path;
     const edits = toolName === 'MultiEdit' ? input.edits : [{ old_string: input.old_string, new_string: input.new_string }];
-    
+
     let result = `📝 *Editing \`${filePath}\`*\n`;
-    
+
     for (const edit of edits) {
       result += '\n```diff\n';
       result += `- ${this.truncateString(edit.old_string, 200)}\n`;
       result += `+ ${this.truncateString(edit.new_string, 200)}\n`;
       result += '```';
     }
-    
+
     return result;
   }
 
   private formatWriteTool(input: any): string {
     const filePath = input.file_path;
     const preview = this.truncateString(input.content, 300);
-    
+
     return `📄 *Creating \`${filePath}\`*\n\`\`\`\n${preview}\n\`\`\``;
   }
 
@@ -492,11 +484,11 @@ export class SlackHandler {
   }
 
   private async handleTodoUpdate(
-    input: any, 
-    sessionKey: string, 
-    sessionId: string | undefined, 
-    channel: string, 
-    threadTs: string, 
+    input: any,
+    sessionKey: string,
+    sessionId: string | undefined,
+    channel: string,
+    threadTs: string,
     say: any
   ): Promise<void> {
     if (!sessionId || !input.todos) {
@@ -505,18 +497,18 @@ export class SlackHandler {
 
     const newTodos: Todo[] = input.todos;
     const oldTodos = this.todoManager.getTodos(sessionId);
-    
+
     // Check if there's a significant change
     if (this.todoManager.hasSignificantChange(oldTodos, newTodos)) {
       // Update the todo manager
       this.todoManager.updateTodos(sessionId, newTodos);
-      
+
       // Format the todo list
       const todoList = this.todoManager.formatTodoList(newTodos);
-      
+
       // Check if we already have a todo message for this session
       const existingTodoMessageTs = this.todoMessages.get(sessionKey);
-      
+
       if (existingTodoMessageTs) {
         // Update existing todo message
         try {
@@ -551,17 +543,17 @@ export class SlackHandler {
   }
 
   private async createNewTodoMessage(
-    todoList: string, 
-    channel: string, 
-    threadTs: string, 
-    sessionKey: string, 
+    todoList: string,
+    channel: string,
+    threadTs: string,
+    sessionKey: string,
     say: any
   ): Promise<void> {
     const result = await say({
       text: todoList,
       thread_ts: threadTs,
     });
-    
+
     if (result?.ts) {
       this.todoMessages.set(sessionKey, result.ts);
       this.logger.debug('Created new todo message', { sessionKey, messageTs: result.ts });
@@ -592,10 +584,10 @@ export class SlackHandler {
           });
           this.logger.debug('Removed previous reaction', { sessionKey, emoji: currentEmoji });
         } catch (error) {
-          this.logger.debug('Failed to remove previous reaction (might not exist)', { 
-            sessionKey, 
+          this.logger.debug('Failed to remove previous reaction (might not exist)', {
+            sessionKey,
             emoji: currentEmoji,
-            error: (error as any).message 
+            error: (error as any).message
           });
         }
       }
@@ -610,12 +602,12 @@ export class SlackHandler {
       // Track the current reaction
       this.currentReactions.set(sessionKey, emoji);
 
-      this.logger.debug('Updated message reaction', { 
-        sessionKey, 
-        emoji, 
+      this.logger.debug('Updated message reaction', {
+        sessionKey,
+        emoji,
         previousEmoji: currentEmoji,
-        channel: originalMessage.channel, 
-        ts: originalMessage.ts 
+        channel: originalMessage.channel,
+        ts: originalMessage.ts
       });
     } catch (error) {
       this.logger.warn('Failed to update message reaction', error);
@@ -633,11 +625,11 @@ export class SlackHandler {
 
     let emoji: string;
     if (completed === total) {
-      emoji = '✅'; // All tasks completed
+      emoji = 'white_check_mark'; // All tasks completed
     } else if (inProgress > 0) {
-      emoji = '🔄'; // Tasks in progress
+      emoji = 'arrows_counterclockwise'; // Tasks in progress
     } else {
-      emoji = '📋'; // Tasks pending
+      emoji = 'clipboard'; // Tasks pending
     }
 
     await this.updateMessageReaction(sessionKey, emoji);
@@ -672,10 +664,10 @@ export class SlackHandler {
       });
 
       const channelName = (channelInfo.channel as any)?.name || 'this channel';
-      
+
       let welcomeMessage = `👋 Hi! I'm Claude Code, your AI coding assistant.\n\n`;
       welcomeMessage += `To get started, I need to know the default working directory for #${channelName}.\n\n`;
-      
+
       if (config.baseDirectory) {
         welcomeMessage += `You can use:\n`;
         welcomeMessage += `• \`cwd project-name\` (relative to base directory: \`${config.baseDirectory}\`)\n`;
@@ -684,7 +676,7 @@ export class SlackHandler {
         welcomeMessage += `Please set it using:\n`;
         welcomeMessage += `• \`cwd /path/to/project\` or \`set directory /path/to/project\`\n\n`;
       }
-      
+
       welcomeMessage += `This will be the default working directory for this channel. `;
       welcomeMessage += `You can always override it for specific threads by mentioning me with a different \`cwd\` command.\n\n`;
       welcomeMessage += `Once set, you can ask me to help with code reviews, file analysis, debugging, and more!`;
@@ -747,34 +739,6 @@ export class SlackHandler {
         this.logger.info('Bot added to channel', { channel: event.channel });
         await this.handleChannelJoin(event.channel, say);
       }
-    });
-
-    // Handle permission approval button clicks
-    this.app.action('approve_tool', async ({ ack, body, respond }) => {
-      await ack();
-      const approvalId = (body as any).actions[0].value;
-      this.logger.info('Tool approval granted', { approvalId });
-      
-      permissionServer.resolveApproval(approvalId, true);
-      
-      await respond({
-        response_type: 'ephemeral',
-        text: '✅ Tool execution approved'
-      });
-    });
-
-    // Handle permission denial button clicks
-    this.app.action('deny_tool', async ({ ack, body, respond }) => {
-      await ack();
-      const approvalId = (body as any).actions[0].value;
-      this.logger.info('Tool approval denied', { approvalId });
-      
-      permissionServer.resolveApproval(approvalId, false);
-      
-      await respond({
-        response_type: 'ephemeral',
-        text: '❌ Tool execution denied'
-      });
     });
 
     // Cleanup inactive sessions periodically

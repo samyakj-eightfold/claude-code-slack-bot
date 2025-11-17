@@ -71,6 +71,10 @@ SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_APP_TOKEN=xapp-your-app-token
 SLACK_SIGNING_SECRET=your-signing-secret
 
+# Working Directory Configuration
+# Default working directory when none is explicitly set
+DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
+
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
 
@@ -94,7 +98,7 @@ npm run prod
 
 ### Setting Working Directory
 
-Before using Claude Code, you must set a working directory. This tells Claude where your project files are located.
+The bot uses a default working directory (configurable via `DEFAULT_WORKING_DIRECTORY` in `.env`, defaults to `/home/ec2-user/vscode`) when no directory is explicitly set. You can override this for specific channels, conversations, or threads.
 
 #### Set working directory:
 
@@ -127,15 +131,24 @@ get directory
 - **Channels**: Working directory is set for the entire channel (prompted when bot joins)
 - **Threads**: Can override the channel/DM directory for a specific thread by mentioning the bot
 
-### Base Directory Configuration
+### Directory Configuration
 
-You can configure a base directory in your `.env` file to use relative paths:
+You can configure directories in your `.env` file:
 
 ```env
+# Default working directory (fallback when none is set)
+DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
+
+# Base directory for relative paths
 BASE_DIRECTORY=/Users/username/Code/
 ```
 
-With this set, you can use:
+**Priority order:**
+1. Thread-specific directory (set with `@ClaudeBot cwd ...` in thread)
+2. Channel/DM directory (set with `cwd ...`)
+3. Default directory (`DEFAULT_WORKING_DIRECTORY`)
+
+**With BASE_DIRECTORY set**, you can use:
 - `cwd herd-website` → resolves to `/Users/username/Code/herd-website`
 - `cwd /absolute/path` → uses absolute path directly
 

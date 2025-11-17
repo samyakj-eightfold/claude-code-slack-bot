@@ -36,19 +36,12 @@ export class ClaudeHandler {
     prompt: string,
     session?: ConversationSession,
     abortController?: AbortController,
-    workingDirectory?: string,
-    slackContext?: { channel: string; threadTs?: string; user: string }
+    workingDirectory?: string
   ): AsyncGenerator<SDKMessage, void, unknown> {
     const options: any = {
       outputFormat: 'stream-json',
-      permissionMode: slackContext ? 'default' : 'bypassPermissions',
+      permissionMode: 'bypassPermissions', // Always bypass permissions - no user approval needed
     };
-
-    // Add permission prompt tool if we have Slack context
-    if (slackContext) {
-      options.permissionPromptToolName = 'mcp__permission-prompt__permission_prompt';
-      this.logger.debug('Added permission prompt tool for Slack integration', slackContext);
-    }
 
     if (workingDirectory) {
       options.cwd = workingDirectory;
@@ -57,34 +50,11 @@ export class ClaudeHandler {
     // Add MCP server configuration if available
     const mcpServers = this.mcpManager.getServerConfiguration();
     
-    // Add permission prompt server if we have Slack context
-    if (slackContext) {
-      const permissionServer = {
-        'permission-prompt': {
-          command: 'npx',
-          args: ['tsx', '/Users/marcelpociot/Experiments/claude-code-slack/src/permission-mcp-server.ts'],
-          env: {
-            SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
-            SLACK_CONTEXT: JSON.stringify(slackContext)
-          }
-        }
-      };
-      
-      if (mcpServers) {
-        options.mcpServers = { ...mcpServers, ...permissionServer };
-      } else {
-        options.mcpServers = permissionServer;
-      }
-    } else if (mcpServers && Object.keys(mcpServers).length > 0) {
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
       options.mcpServers = mcpServers;
-    }
-    
-    if (options.mcpServers && Object.keys(options.mcpServers).length > 0) {
-      // Allow all MCP tools by default, plus permission prompt tool
+      
+      // Allow all MCP tools by default
       const defaultMcpTools = this.mcpManager.getDefaultAllowedTools();
-      if (slackContext) {
-        defaultMcpTools.push('mcp__permission-prompt');
-      }
       if (defaultMcpTools.length > 0) {
         options.allowedTools = defaultMcpTools;
       }
@@ -93,7 +63,6 @@ export class ClaudeHandler {
         serverCount: Object.keys(options.mcpServers).length,
         servers: Object.keys(options.mcpServers),
         allowedTools: defaultMcpTools,
-        hasSlackContext: !!slackContext,
       });
     }
 
@@ -104,14 +73,45 @@ export class ClaudeHandler {
       this.logger.debug('Starting new Claude conversation');
     }
 
+    // Validate that we have credentials configured
+    if (!process.env.ANTHROPIC_API_KEY && 
+        !process.env.CLAUDE_CODE_USE_BEDROCK && 
+        !process.env.CLAUDE_CODE_USE_VERTEX) {
+      const error = new Error('No Claude credentials configured. Set ANTHROPIC_API_KEY, or enable CLAUDE_CODE_USE_BEDROCK or CLAUDE_CODE_USE_VERTEX');
+      this.logger.error('Missing credentials', error);
+      throw error;
+    }
+
     this.logger.debug('Claude query options', options);
+    this.logger.info('Starting Claude Code SDK query', {
+      promptLength: prompt.length,
+      workingDirectory,
+      hasSession: !!session?.sessionId,
+      permissionMode: options.permissionMode,
+      hasApiKey: !!process.env.ANTHROPIC_API_KEY,
+      useBedrock: !!process.env.CLAUDE_CODE_USE_BEDROCK,
+      useVertex: !!process.env.CLAUDE_CODE_USE_VERTEX,
+    });
 
     try {
+      let messageCount = 0;
+      const startTime = Date.now();
+      
       for await (const message of query({
         prompt,
         abortController: abortController || new AbortController(),
         options,
       })) {
+        messageCount++;
+        const elapsed = Date.now() - startTime;
+        
+        this.logger.debug('Received message from SDK', {
+          messageNumber: messageCount,
+          type: message.type,
+          subtype: (message as any).subtype,
+          elapsedMs: elapsed,
+        });
+        
         if (message.type === 'system' && message.subtype === 'init') {
           if (session) {
             session.sessionId = message.session_id;
@@ -119,11 +119,17 @@ export class ClaudeHandler {
               sessionId: message.session_id,
               model: (message as any).model,
               tools: (message as any).tools?.length || 0,
+              elapsedMs: elapsed,
             });
           }
         }
         yield message;
       }
+      
+      this.logger.info('Claude Code SDK query completed', {
+        totalMessages: messageCount,
+        totalTimeMs: Date.now() - startTime,
+      });
     } catch (error) {
       this.logger.error('Error in Claude query', error);
       throw error;
