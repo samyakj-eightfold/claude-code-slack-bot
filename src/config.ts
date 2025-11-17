@@ -15,6 +15,7 @@ export const config = {
     useBedrock: process.env.CLAUDE_CODE_USE_BEDROCK === '1',
     useVertex: process.env.CLAUDE_CODE_USE_VERTEX === '1',
     defaultAgent: process.env.CLAUDE_DEFAULT_AGENT || '/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md',
+    model: process.env.CLAUDE_MODEL || 'claude-sonnet-4.5',
   },
   baseDirectory: process.env.BASE_DIRECTORY || '',
   defaultWorkingDirectory: process.env.DEFAULT_WORKING_DIRECTORY || '/home/ec2-user/vscode',

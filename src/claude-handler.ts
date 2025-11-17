@@ -43,6 +43,7 @@ export class ClaudeHandler {
     const options: any = {
       outputFormat: 'stream-json',
       permissionMode: 'bypassPermissions', // Always bypass permissions - no user approval needed
+      model: config.claude.model, // Use configured model
     };
 
     if (workingDirectory) {
@@ -101,6 +102,7 @@ export class ClaudeHandler {
       workingDirectory,
       hasSession: !!session?.sessionId,
       permissionMode: options.permissionMode,
+      model: options.model,
       agentPath: options.agentPath || 'none',
       hasApiKey: !!process.env.ANTHROPIC_API_KEY,
       useBedrock: !!process.env.CLAUDE_CODE_USE_BEDROCK,

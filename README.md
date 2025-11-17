@@ -79,6 +79,10 @@ DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
 # Default agent to use for all new conversations
 CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
 
+# Claude Model Configuration
+# Specify which Claude model to use (default: claude-sonnet-4.5)
+CLAUDE_MODEL=claude-sonnet-4.5
+
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
 
@@ -252,6 +256,23 @@ The bot supports MCP servers to extend Claude's capabilities with additional too
 All MCP tools are automatically allowed and follow the pattern: `mcp__serverName__toolName`
 
 ## Advanced Configuration
+
+### Claude Model Selection
+
+You can specify which Claude model to use by setting the `CLAUDE_MODEL` environment variable. The default is `claude-sonnet-4.5`.
+
+**Configuration:**
+```env
+CLAUDE_MODEL=claude-sonnet-4.5
+```
+
+**Available Models:**
+- `claude-sonnet-4.5` - Claude 4.5 Sonnet (default, most capable)
+- `claude-sonnet-4` - Claude 4 Sonnet
+- `claude-opus-4` - Claude 4 Opus (most powerful)
+- `claude-haiku-4` - Claude 4 Haiku (fastest)
+
+The model setting applies to all new and existing conversations.
 
 ### Default Claude Agent
 
