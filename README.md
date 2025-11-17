@@ -80,8 +80,9 @@ DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
 CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
 
 # Claude Model Configuration
-# Specify which Claude model to use (default: claude-sonnet-4.5)
-CLAUDE_MODEL=claude-sonnet-4.5
+# Specify which Claude model to use (default: sonnet for Claude Sonnet 4.5)
+# Use aliases: 'sonnet', 'opus', 'haiku' or full names like 'claude-sonnet-4-5-20250929'
+CLAUDE_MODEL=sonnet
 
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
@@ -259,18 +260,25 @@ All MCP tools are automatically allowed and follow the pattern: `mcp__serverName
 
 ### Claude Model Selection
 
-You can specify which Claude model to use by setting the `CLAUDE_MODEL` environment variable. The default is `claude-sonnet-4.5`.
+You can specify which Claude model to use by setting the `CLAUDE_MODEL` environment variable. The default is `sonnet` (Claude Sonnet 4.5).
 
 **Configuration:**
 ```env
-CLAUDE_MODEL=claude-sonnet-4.5
+CLAUDE_MODEL=sonnet
 ```
 
-**Available Models:**
-- `claude-sonnet-4.5` - Claude 4.5 Sonnet (default, most capable)
-- `claude-sonnet-4` - Claude 4 Sonnet
-- `claude-opus-4` - Claude 4 Opus (most powerful)
-- `claude-haiku-4` - Claude 4 Haiku (fastest)
+**Available Models (Aliases):**
+- `sonnet` - Claude Sonnet 4.5 (default, most capable and latest)
+- `opus` - Claude Opus 4 (most powerful)
+- `haiku` - Claude Haiku 4 (fastest)
+
+**Full Model Names (with specific versions):**
+You can also specify full model names for precise version control:
+- `claude-sonnet-4-5-20250929` - Claude Sonnet 4.5 (specific version)
+- `claude-opus-4-20250514` - Claude Opus 4 (specific version)
+- `claude-haiku-4-20250514` - Claude Haiku 4 (specific version)
+
+**Note:** Using aliases (e.g., `sonnet`) automatically gives you the latest version of that model family.
 
 The model setting applies to all new and existing conversations.
 
