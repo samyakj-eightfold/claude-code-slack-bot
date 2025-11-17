@@ -75,6 +75,10 @@ SLACK_SIGNING_SECRET=your-signing-secret
 # Default working directory when none is explicitly set
 DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
 
+# Claude Agent Configuration
+# Default agent to use for all new conversations
+CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
+
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
 
@@ -95,6 +99,17 @@ npm run prod
 ```
 
 ## Usage
+
+### Agent-Based Conversations
+
+If you've configured a default agent (via `CLAUDE_DEFAULT_AGENT`), the bot will automatically use that agent's behavior for all new conversations. This is great for specialized workflows like:
+
+- **Debugging & Root Cause Analysis** - Systematic problem investigation
+- **Code Review** - Structured code analysis and feedback
+- **Documentation** - Consistent documentation generation
+- **Custom Workflows** - Any specialized behavior you define
+
+**Note:** Agents only apply to new conversations. Continued conversations in threads maintain their existing context.
 
 ### Setting Working Directory
 
@@ -237,6 +252,41 @@ The bot supports MCP servers to extend Claude's capabilities with additional too
 All MCP tools are automatically allowed and follow the pattern: `mcp__serverName__toolName`
 
 ## Advanced Configuration
+
+### Default Claude Agent
+
+You can configure the bot to automatically use a specific Claude agent for all new conversations. This is useful for specialized workflows like debugging, code review, or documentation generation.
+
+**Configuration:**
+```env
+CLAUDE_DEFAULT_AGENT=/path/to/your/.claude/agents/agent-name.md
+```
+
+**Example:**
+```env
+CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
+```
+
+**How it works:**
+- The agent is loaded automatically for **new conversations only**
+- Resumed conversations (in threads) continue with their existing context
+- The agent file must exist at the specified path
+- If the file doesn't exist, the bot will log a warning and continue without the agent
+
+**Creating Custom Agents:**
+
+Agents are markdown files that define specialized behaviors. See the [Claude Code documentation](https://docs.anthropic.com/claude/docs/agents) for details on creating custom agents.
+
+Example agent structure:
+```markdown
+---
+name: your-agent-name
+description: What this agent does
+model: sonnet
+---
+
+[Agent instructions and behavior here]
+```
 
 ### Using AWS Bedrock
 Set these environment variables:

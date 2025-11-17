@@ -1,7 +1,9 @@
 import { query, type SDKMessage } from '@anthropic-ai/claude-code';
-import { ConversationSession } from './types';
-import { Logger } from './logger';
-import { McpManager, McpServerConfig } from './mcp-manager';
+import { ConversationSession } from './types.js';
+import { Logger } from './logger.js';
+import { McpManager, McpServerConfig } from './mcp-manager.js';
+import { config } from './config.js';
+import * as fs from 'fs';
 
 export class ClaudeHandler {
   private sessions: Map<string, ConversationSession> = new Map();
@@ -47,18 +49,29 @@ export class ClaudeHandler {
       options.cwd = workingDirectory;
     }
 
+    // Load default agent for new conversations (not resumed sessions)
+    if (!session?.sessionId && config.claude.defaultAgent) {
+      const agentPath = config.claude.defaultAgent;
+      if (fs.existsSync(agentPath)) {
+        this.logger.info('Loading default agent', { agentPath });
+        options.agentPath = agentPath;
+      } else {
+        this.logger.warn('Default agent file not found', { agentPath });
+      }
+    }
+
     // Add MCP server configuration if available
     const mcpServers = this.mcpManager.getServerConfiguration();
-    
+
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       options.mcpServers = mcpServers;
-      
+
       // Allow all MCP tools by default
       const defaultMcpTools = this.mcpManager.getDefaultAllowedTools();
       if (defaultMcpTools.length > 0) {
         options.allowedTools = defaultMcpTools;
       }
-      
+
       this.logger.debug('Added MCP configuration to options', {
         serverCount: Object.keys(options.mcpServers).length,
         servers: Object.keys(options.mcpServers),
@@ -74,9 +87,9 @@ export class ClaudeHandler {
     }
 
     // Validate that we have credentials configured
-    if (!process.env.ANTHROPIC_API_KEY && 
-        !process.env.CLAUDE_CODE_USE_BEDROCK && 
-        !process.env.CLAUDE_CODE_USE_VERTEX) {
+    if (!process.env.ANTHROPIC_API_KEY &&
+      !process.env.CLAUDE_CODE_USE_BEDROCK &&
+      !process.env.CLAUDE_CODE_USE_VERTEX) {
       const error = new Error('No Claude credentials configured. Set ANTHROPIC_API_KEY, or enable CLAUDE_CODE_USE_BEDROCK or CLAUDE_CODE_USE_VERTEX');
       this.logger.error('Missing credentials', error);
       throw error;
@@ -88,6 +101,7 @@ export class ClaudeHandler {
       workingDirectory,
       hasSession: !!session?.sessionId,
       permissionMode: options.permissionMode,
+      agentPath: options.agentPath || 'none',
       hasApiKey: !!process.env.ANTHROPIC_API_KEY,
       useBedrock: !!process.env.CLAUDE_CODE_USE_BEDROCK,
       useVertex: !!process.env.CLAUDE_CODE_USE_VERTEX,
@@ -96,7 +110,7 @@ export class ClaudeHandler {
     try {
       let messageCount = 0;
       const startTime = Date.now();
-      
+
       for await (const message of query({
         prompt,
         abortController: abortController || new AbortController(),
@@ -104,18 +118,18 @@ export class ClaudeHandler {
       })) {
         messageCount++;
         const elapsed = Date.now() - startTime;
-        
+
         this.logger.debug('Received message from SDK', {
           messageNumber: messageCount,
           type: message.type,
           subtype: (message as any).subtype,
           elapsedMs: elapsed,
         });
-        
+
         if (message.type === 'system' && message.subtype === 'init') {
           if (session) {
             session.sessionId = message.session_id;
-            this.logger.info('Session initialized', { 
+            this.logger.info('Session initialized', {
               sessionId: message.session_id,
               model: (message as any).model,
               tools: (message as any).tools?.length || 0,
@@ -125,7 +139,7 @@ export class ClaudeHandler {
         }
         yield message;
       }
-      
+
       this.logger.info('Claude Code SDK query completed', {
         totalMessages: messageCount,
         totalTimeMs: Date.now() - startTime,
