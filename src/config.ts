@@ -14,11 +14,11 @@ export const config = {
   claude: {
     useBedrock: process.env.CLAUDE_CODE_USE_BEDROCK === '1',
     useVertex: process.env.CLAUDE_CODE_USE_VERTEX === '1',
-    defaultAgent: process.env.CLAUDE_DEFAULT_AGENT || '/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md',
+    defaultAgent: process.env.CLAUDE_DEFAULT_AGENT || '',
     model: process.env.CLAUDE_MODEL || 'sonnet',
   },
   baseDirectory: process.env.BASE_DIRECTORY || '',
-  defaultWorkingDirectory: process.env.DEFAULT_WORKING_DIRECTORY || '/home/ec2-user/vscode',
+  defaultWorkingDirectory: process.env.DEFAULT_WORKING_DIRECTORY || '',
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 };
 
