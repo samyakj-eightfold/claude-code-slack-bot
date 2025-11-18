@@ -73,11 +73,11 @@ SLACK_SIGNING_SECRET=your-signing-secret
 
 # Working Directory Configuration
 # Default working directory when none is explicitly set
-DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
+DEFAULT_WORKING_DIRECTORY=/path/to/your/workspace
 
 # Claude Agent Configuration
 # Default agent to use for all new conversations
-CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
+CLAUDE_DEFAULT_AGENT=/path/to/your/.claude/agents/agent-name.md
 
 # Claude Model Configuration
 # Specify which Claude model to use (default: sonnet for Claude Sonnet 4.5)
@@ -118,7 +118,7 @@ If you've configured a default agent (via `CLAUDE_DEFAULT_AGENT`), the bot will 
 
 ### Setting Working Directory
 
-The bot uses a default working directory (configurable via `DEFAULT_WORKING_DIRECTORY` in `.env`, defaults to `/home/ec2-user/vscode`) when no directory is explicitly set. You can override this for specific channels, conversations, or threads.
+The bot uses a default working directory (configurable via `DEFAULT_WORKING_DIRECTORY` in `.env`) when no directory is explicitly set. You can override this for specific channels, conversations, or threads.
 
 #### Set working directory:
 
@@ -157,10 +157,10 @@ You can configure directories in your `.env` file:
 
 ```env
 # Default working directory (fallback when none is set)
-DEFAULT_WORKING_DIRECTORY=/home/ec2-user/vscode
+DEFAULT_WORKING_DIRECTORY=/path/to/your/workspace
 
 # Base directory for relative paths
-BASE_DIRECTORY=/Users/username/Code/
+BASE_DIRECTORY=/path/to/your/base/directory/
 ```
 
 **Priority order:**
@@ -169,7 +169,7 @@ BASE_DIRECTORY=/Users/username/Code/
 3. Default directory (`DEFAULT_WORKING_DIRECTORY`)
 
 **With BASE_DIRECTORY set**, you can use:
-- `cwd herd-website` → resolves to `/Users/username/Code/herd-website`
+- `cwd project-name` → resolves to `/path/to/your/base/directory/project-name`
 - `cwd /absolute/path` → uses absolute path directly
 
 ### Direct Messages
@@ -293,7 +293,7 @@ CLAUDE_DEFAULT_AGENT=/path/to/your/.claude/agents/agent-name.md
 
 **Example:**
 ```env
-CLAUDE_DEFAULT_AGENT=/home/ec2-user/vscode/.claude/agents/root-cause-investigator.md
+CLAUDE_DEFAULT_AGENT=/path/to/your/.claude/agents/root-cause-investigator.md
 ```
 
 **How it works:**
